@@ -13,8 +13,9 @@ const pool = new Pool({
   connectionString: process.env.MONGO_URI,
   ssl: {
     require: true,
-    rejectUnauthorized: false,
+    rejectUnauthorized: false
   },
+  family: 4
 });
 
 const router = express.Router();
