@@ -16,6 +16,7 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.MONGO_URI,
   ssl: {
+    require: true,
     rejectUnauthorized: false,
   },
 });
@@ -152,6 +153,15 @@ app.get("/api/seed", async (req, res) => {
   }
 });
 
+app.get("/db-test", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT NOW()");
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+});
+console.log("ENV:", process.env.MONGO_URI);
 /* -------------------- SERVER -------------------- */
 
 const PORT = process.env.PORT || 5000;

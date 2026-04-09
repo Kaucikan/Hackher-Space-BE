@@ -5,7 +5,10 @@ const { Pool } = pkg;
 
 const pool = new Pool({
   connectionString: process.env.MONGO_URI,
-  ssl: { rejectUnauthorized: false },
+  ssl: {
+    require: true,
+    rejectUnauthorized: false,
+  },
 });
 
 const router = express.Router();
