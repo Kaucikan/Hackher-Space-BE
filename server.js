@@ -11,19 +11,35 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 
+import authRoutes from "./routes/auth.js";
+import listingRoutes from "./routes/listings.js";
+
+import Twin from "./models/Twin.js";
+import Carbon from "./models/Carbon.js";
+
+const app = express();
+
+/* -------------------- DB -------------------- */
+
+if (!process.env.MONGO_URI) {
+  console.error("MONGO_URI missing in .env");
+  process.exit(1);
+}
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log("Mongo error", err));
 
-import authRoutes from "./routes/auth.js";
-import listingRoutes from "./routes/listings.js";
-
-const app = express();
-
 /* -------------------- MIDDLEWARE -------------------- */
 
-app.use(cors({ origin: "*" }));
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -32,49 +48,86 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingRoutes);
 
-/* -------------------- DIGITAL TWIN GET -------------------- */
+/* -------------------- DIGITAL TWIN -------------------- */
 
 app.get("/api/digital-twin", async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM twins");
-
-    const result = rows.map((item) => {
-      let prediction;
-
-      if (item.quantity > 50) prediction = "High waste → Sell or reuse";
-      else if (item.quantity > 20) prediction = "Moderate waste → Recycle";
-      else prediction = "Low waste → Sustainable usage";
-
-      return { ...item, prediction };
-    });
-
-    res.json(result);
+    const data = await Twin.find({}).lean();
+    return res.json(data || []);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("Twin GET error:", err);
+    return res.json([]); // never send 500
   }
 });
-
-/* -------------------- DIGITAL TWIN ADD -------------------- */
 
 app.post("/api/digital-twin", async (req, res) => {
   try {
-    const { material, quantity, location, status } = req.body;
+    const twin = new Twin({
+      material: req.body?.material || "",
+      quantity: Number(req.body?.quantity || 0),
+      location: req.body?.location || "",
+      status: req.body?.status || "available",
+    });
 
-    const { rows } = await pool.query(
-      `INSERT INTO twins (material, quantity, location, status)
-       VALUES ($1,$2,$3,$4)
-       RETURNING *`,
-      [material, quantity, location, status],
-    );
+    await twin.save();
 
-    res.json(rows[0]);
+    res.json(twin);
   } catch (err) {
-    res.status(500).json({ error: "Failed to add data" });
+    console.error("Twin POST error:", err);
+    res.json({ error: "save failed" });
   }
 });
 
-/* -------------------- IMPACT DATA -------------------- */
+/* -------------------- CARBON -------------------- */
+
+app.post("/api/carbon", async (req, res) => {
+  try {
+    const {
+      type,
+      transport = 10,
+      electricity = 20,
+      waste = 15,
+      industryEnergy = 0,
+    } = req.body;
+
+    let carbon = 0;
+
+    if (type === "individual") {
+      carbon = transport * 0.12 + electricity * 0.8 + waste * 0.5;
+    }
+
+    if (type === "industry") {
+      carbon = industryEnergy * 1.5 + waste * 0.7;
+    }
+
+    const suggestion =
+      carbon > 100
+        ? "High emission → Reduce usage"
+        : carbon > 50
+          ? "Moderate emission → Optimize"
+          : "Low emission → Sustainable";
+
+    const saved = await Carbon.create({
+      type,
+      transport,
+      electricity,
+      waste,
+      industryEnergy,
+      total_carbon: carbon,
+    });
+
+    res.json({
+      total_carbon: Number(carbon.toFixed(2)),
+      suggestion,
+      data: saved,
+    });
+  } catch (err) {
+    console.log("Carbon error:", err);
+    res.status(500).json({ error: "carbon failed" });
+  }
+});
+
+/* -------------------- IMPACT -------------------- */
 
 app.get("/api/impact/:userId", async (req, res) => {
   res.json([
@@ -95,72 +148,16 @@ app.get("/api/stats/:userId", async (req, res) => {
   });
 });
 
-/* -------------------- CARBON CALCULATOR -------------------- */
+/* -------------------- HEALTH -------------------- */
 
-app.post("/api/carbon", (req, res) => {
-  const {
-    type,
-    transport = 10,
-    electricity = 20,
-    waste = 15,
-    industryEnergy = 0,
-  } = req.body;
-
-  let carbon = 0;
-
-  if (type === "individual") {
-    carbon = transport * 0.12 + electricity * 0.8 + waste * 0.5;
-  }
-
-  if (type === "industry") {
-    carbon = industryEnergy * 1.5 + waste * 0.7;
-  }
-
-  let suggestion;
-
-  if (carbon > 100) suggestion = "High emission → Reduce usage";
-  else if (carbon > 50) suggestion = "Moderate emission → Optimize";
-  else suggestion = "Low emission → Sustainable";
-
-  res.json({
-    total_carbon: Number(carbon.toFixed(2)),
-    suggestion,
-  });
+app.get("/", (req, res) => {
+  res.send("HackHerSpace API running");
 });
 
-/* -------------------- SEED DATA -------------------- */
-
-app.get("/api/seed", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM twins");
-
-    await pool.query(`
-      INSERT INTO twins (material, quantity, location, status)
-      VALUES 
-      ('Plastic',60,'Chennai','available'),
-      ('Metal',30,'Salem','processing'),
-      ('Paper',10,'Coimbatore','reused')
-    `);
-
-    res.send("Sample data inserted");
-  } catch (err) {
-    res.status(500).json({ error: "Seed failed" });
-  }
-});
-
-app.get("/db-test", async (req, res) => {
-  try {
-    const { rows } = await pool.query("SELECT NOW()");
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json(err.message);
-  }
-});
-console.log("ENV:", process.env.MONGO_URI);
 /* -------------------- SERVER -------------------- */
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log("Server running on", PORT);
+  console.log(`Server running on ${PORT}`);
 });

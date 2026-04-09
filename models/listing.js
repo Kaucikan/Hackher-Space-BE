@@ -1,5 +1,24 @@
 import mongoose from "mongoose";
 
+const requestSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  phone: String,
+  name: String,
+  message: String,
+  status: {
+    type: String,
+    enum: ["pending", "accepted", "rejected"],
+    default: "pending",
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 const listingSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
@@ -21,28 +40,12 @@ const listingSchema = new mongoose.Schema(
       ref: "User",
     },
 
-    requests: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
-        },
-        phone: String,
-        name: String,
-        message: String,
-        status: {
-          type: String,
-          enum: ["pending", "accepted", "rejected"],
-          default: "pending",
-        },
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
+    requests: [requestSchema],
   },
   { timestamps: true },
 );
 
-export default mongoose.model("Listing", listingSchema);
+const Listing =
+  mongoose.models.Listing || mongoose.model("Listing", listingSchema);
+
+export default Listing;
