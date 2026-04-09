@@ -1,55 +1,24 @@
 import express from "express";
-import mongoose from "mongoose";
+import pkg from "pg";
+
+const { Pool } = pkg;
+
+const pool = new Pool({
+  connectionString: process.env.MONGO_URI,
+  ssl: { rejectUnauthorized: false },
+});
 
 const router = express.Router();
-
-/* -------------------- MODEL -------------------- */
-
-const listingSchema = new mongoose.Schema(
-  {
-    title: String,
-    material: String,
-    quantity: Number,
-    location: String,
-    price: Number,
-    description: String,
-    userId: String,
-
-    status: {
-      type: String,
-      default: "available",
-    },
-
-    /* FIX: add requests */
-    requests: [
-      {
-        name: String,
-        phone: String,
-        message: String,
-        status: {
-          type: String,
-          default: "pending",
-        },
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
-  },
-  { timestamps: true },
-);
-
-/* FIX: prevent overwrite */
-const Listing =
-  mongoose.models.Listing || mongoose.model("Listing", listingSchema);
 
 /* -------------------- GET ALL -------------------- */
 
 router.get("/", async (req, res) => {
   try {
-    const listings = await Listing.find().sort({ createdAt: -1 });
-    res.json(listings);
+    const { rows } = await pool.query(
+      "SELECT * FROM listings ORDER BY created_at DESC"
+    );
+
+    res.json(rows);
   } catch {
     res.status(500).json({ error: "Failed to load listings" });
   }
@@ -59,8 +28,25 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const listing = await Listing.create(req.body);
-    res.json(listing);
+    const {
+      title,
+      material,
+      quantity,
+      location,
+      price,
+      description,
+      userId,
+    } = req.body;
+
+    const { rows } = await pool.query(
+      `INSERT INTO listings 
+      (title, material, quantity, location, price, description, user_id, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'available')
+      RETURNING *`,
+      [title, material, quantity, location, price, description, userId]
+    );
+
+    res.json(rows[0]);
   } catch {
     res.status(500).json({ error: "Failed to create listing" });
   }
@@ -72,20 +58,20 @@ router.post("/:id/request", async (req, res) => {
   try {
     const { name, phone, message } = req.body;
 
-    const listing = await Listing.findById(req.params.id);
-    if (!listing) {
-      return res.status(404).json({ error: "Listing not found" });
-    }
+    const { rows } = await pool.query(
+      `INSERT INTO requests 
+      (listing_id, name, phone, message, status)
+      VALUES ($1,$2,$3,$4,'pending')
+      RETURNING *`,
+      [
+        req.params.id,
+        name || "Anonymous",
+        phone || "N/A",
+        message || "Interested",
+      ]
+    );
 
-    listing.requests.push({
-      name: name || "Anonymous",
-      phone: phone || "N/A",
-      message: message || "Interested",
-    });
-
-    await listing.save();
-
-    res.json({ success: true, requests: listing.requests });
+    res.json(rows[0]);
   } catch {
     res.status(500).json({ error: "Request failed" });
   }
@@ -95,26 +81,29 @@ router.post("/:id/request", async (req, res) => {
 
 router.get("/user/:userId", async (req, res) => {
   try {
-    /* FIX: use userId not owner */
-    const listings = await Listing.find({
-      userId: req.params.userId,
-    });
+    const { rows } = await pool.query(
+      "SELECT * FROM listings WHERE user_id=$1",
+      [req.params.userId]
+    );
 
-    res.json(listings);
+    res.json(rows);
   } catch {
     res.status(500).json({ error: "Failed to load listings" });
   }
 });
 
-/* -------------------- UPDATE STATUS -------------------- */
+/* -------------------- UPDATE -------------------- */
 
 router.put("/:id", async (req, res) => {
   try {
-    const listing = await Listing.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const { status } = req.body;
 
-    res.json(listing);
+    const { rows } = await pool.query(
+      "UPDATE listings SET status=$1 WHERE id=$2 RETURNING *",
+      [status, req.params.id]
+    );
+
+    res.json(rows[0]);
   } catch {
     res.status(500).json({ error: "Update failed" });
   }
@@ -124,7 +113,10 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await Listing.findByIdAndDelete(req.params.id);
+    await pool.query("DELETE FROM listings WHERE id=$1", [
+      req.params.id,
+    ]);
+
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Delete failed" });
