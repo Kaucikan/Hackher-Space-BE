@@ -32,13 +32,11 @@ mongoose
   .catch((err) => console.log("Mongo error", err));
 
 /* -------------------- MIDDLEWARE -------------------- */
-
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  }),
-);
+app.use(cors({
+  origin: "*",
+  methods: ["GET","POST","PUT","DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -47,6 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingRoutes);
+
 
 /* -------------------- DIGITAL TWIN -------------------- */
 
