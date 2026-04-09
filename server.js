@@ -9,18 +9,12 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 
 import express from "express";
 import cors from "cors";
-import pkg from "pg";
+import mongoose from "mongoose";
 
-const { Pool } = pkg;
-
-const pool = new Pool({
-  connectionString: process.env.MONGO_URI,
-  ssl: {
-    require: true,
-    rejectUnauthorized: false
-  },
-  family: 4
-});
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log("Mongo error", err));
 
 import authRoutes from "./routes/auth.js";
 import listingRoutes from "./routes/listings.js";
