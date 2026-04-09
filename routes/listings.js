@@ -15,7 +15,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM listings ORDER BY created_at DESC"
+      "SELECT * FROM listings ORDER BY created_at DESC",
     );
 
     res.json(rows);
@@ -28,22 +28,15 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const {
-      title,
-      material,
-      quantity,
-      location,
-      price,
-      description,
-      userId,
-    } = req.body;
+    const { title, material, quantity, location, price, description, userId } =
+      req.body;
 
     const { rows } = await pool.query(
       `INSERT INTO listings 
       (title, material, quantity, location, price, description, user_id, status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,'available')
       RETURNING *`,
-      [title, material, quantity, location, price, description, userId]
+      [title, material, quantity, location, price, description, userId],
     );
 
     res.json(rows[0]);
@@ -68,7 +61,7 @@ router.post("/:id/request", async (req, res) => {
         name || "Anonymous",
         phone || "N/A",
         message || "Interested",
-      ]
+      ],
     );
 
     res.json(rows[0]);
@@ -83,7 +76,7 @@ router.get("/user/:userId", async (req, res) => {
   try {
     const { rows } = await pool.query(
       "SELECT * FROM listings WHERE user_id=$1",
-      [req.params.userId]
+      [req.params.userId],
     );
 
     res.json(rows);
@@ -100,7 +93,7 @@ router.put("/:id", async (req, res) => {
 
     const { rows } = await pool.query(
       "UPDATE listings SET status=$1 WHERE id=$2 RETURNING *",
-      [status, req.params.id]
+      [status, req.params.id],
     );
 
     res.json(rows[0]);
@@ -113,9 +106,7 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM listings WHERE id=$1", [
-      req.params.id,
-    ]);
+    await pool.query("DELETE FROM listings WHERE id=$1", [req.params.id]);
 
     res.json({ success: true });
   } catch {

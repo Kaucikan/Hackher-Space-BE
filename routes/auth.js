@@ -29,10 +29,9 @@ router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const exists = await pool.query(
-      "SELECT * FROM users WHERE email=$1",
-      [email]
-    );
+    const exists = await pool.query("SELECT * FROM users WHERE email=$1", [
+      email,
+    ]);
 
     if (exists.rows.length)
       return res.status(400).json({ message: "User already exists" });
@@ -43,7 +42,7 @@ router.post("/register", async (req, res) => {
       `INSERT INTO users (name,email,password)
        VALUES ($1,$2,$3)
        RETURNING *`,
-      [name, email, hashed]
+      [name, email, hashed],
     );
 
     const user = rows[0];
@@ -68,20 +67,17 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const { rows } = await pool.query(
-      "SELECT * FROM users WHERE email=$1",
-      [email]
-    );
+    const { rows } = await pool.query("SELECT * FROM users WHERE email=$1", [
+      email,
+    ]);
 
     const user = rows[0];
 
-    if (!user)
-      return res.status(401).json({ message: "User not found" });
+    if (!user) return res.status(401).json({ message: "User not found" });
 
     const valid = await bcrypt.compare(password, user.password);
 
-    if (!valid)
-      return res.status(401).json({ message: "Wrong password" });
+    if (!valid) return res.status(401).json({ message: "Wrong password" });
 
     const token = jwt.sign({ id: user.id }, "secret");
 
@@ -102,20 +98,20 @@ router.post("/login", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
-  const { rows } = await pool.query(
-    "SELECT * FROM users WHERE email=$1",
-    [email]
-  );
+  const { rows } = await pool.query("SELECT * FROM users WHERE email=$1", [
+    email,
+  ]);
 
   const user = rows[0];
   if (!user) return res.status(404).json({ error: "User not found" });
 
   const otp = Math.floor(100000 + Math.random() * 900000);
 
-  await pool.query(
-    "UPDATE users SET otp=$1, otp_expiry=$2 WHERE email=$3",
-    [otp, Date.now() + 5 * 60 * 1000, email]
-  );
+  await pool.query("UPDATE users SET otp=$1, otp_expiry=$2 WHERE email=$3", [
+    otp,
+    Date.now() + 5 * 60 * 1000,
+    email,
+  ]);
 
   await transporter.sendMail({
     from: process.env.EMAIL,
@@ -131,10 +127,9 @@ router.post("/forgot-password", async (req, res) => {
 router.post("/verify-otp", async (req, res) => {
   const { email, otp } = req.body;
 
-  const { rows } = await pool.query(
-    "SELECT * FROM users WHERE email=$1",
-    [email]
-  );
+  const { rows } = await pool.query("SELECT * FROM users WHERE email=$1", [
+    email,
+  ]);
 
   const user = rows[0];
 
@@ -155,7 +150,7 @@ router.post("/reset-password", async (req, res) => {
 
   await pool.query(
     "UPDATE users SET password=$1, otp=NULL, otp_expiry=NULL WHERE email=$2",
-    [hashed, email]
+    [hashed, email],
   );
 
   res.json({ message: "Password updated" });
@@ -171,7 +166,7 @@ router.put("/update-profile/:id", async (req, res) => {
        SET name=$1,email=$2,phone=$3 
        WHERE id=$4 
        RETURNING *`,
-      [name, email, phone, req.params.id]
+      [name, email, phone, req.params.id],
     );
 
     res.json(rows[0]);
