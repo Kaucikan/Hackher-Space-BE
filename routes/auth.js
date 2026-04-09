@@ -5,18 +5,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import pkg from "pg";
-
-const { Pool } = pkg;
-
-const pool = new Pool({
-  connectionString: process.env.MONGO_URI,
-  ssl: {
-    require: true,
-    rejectUnauthorized: false
-  },
-  family: 4
-});
+import pool from "../db.js";
 
 const router = express.Router();
 
