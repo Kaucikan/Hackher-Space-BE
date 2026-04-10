@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 
 import authRoutes from "./routes/auth.js";
 import listingRoutes from "./routes/listings.js";
+import chatRoutes from "./routes/chat.js";
 
 import Twin from "./models/Twin.js";
 import Carbon from "./models/Carbon.js";
@@ -43,6 +44,7 @@ app.use(express.urlencoded({ extended: true }));
 
 /* -------------------- ROUTES -------------------- */
 
+app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingRoutes);
 
@@ -52,10 +54,9 @@ app.use("/api/listings", listingRoutes);
 app.get("/api/digital-twin", async (req, res) => {
   try {
     const data = await Twin.find({}).lean();
-    return res.json(data || []);
-  } catch (err) {
-    console.error("Twin GET error:", err);
-    return res.json([]); // never send 500
+    res.json(data || []);
+  } catch {
+    res.json([]);
   }
 });
 
@@ -69,10 +70,8 @@ app.post("/api/digital-twin", async (req, res) => {
     });
 
     await twin.save();
-
     res.json(twin);
-  } catch (err) {
-    console.error("Twin POST error:", err);
+  } catch {
     res.json({ error: "save failed" });
   }
 });
@@ -101,10 +100,10 @@ app.post("/api/carbon", async (req, res) => {
 
     const suggestion =
       carbon > 100
-        ? "High emission → Reduce usage"
+        ? "High Emission → Reduce Usage"
         : carbon > 50
-          ? "Moderate emission → Optimize"
-          : "Low emission → Sustainable";
+          ? "Moderate Emission → Optimize"
+          : "Low Emission → Sustainable";
 
     const saved = await Carbon.create({
       type,
@@ -120,15 +119,14 @@ app.post("/api/carbon", async (req, res) => {
       suggestion,
       data: saved,
     });
-  } catch (err) {
-    console.log("Carbon error:", err);
+  } catch {
     res.status(500).json({ error: "carbon failed" });
   }
 });
 
 /* -------------------- IMPACT -------------------- */
 
-app.get("/api/impact/:userId", async (req, res) => {
+app.get("/api/impact/:userId", (req, res) => {
   res.json([
     { name: "Jan", co2: 20, waste: 10 },
     { name: "Feb", co2: 30, waste: 15 },
@@ -139,7 +137,7 @@ app.get("/api/impact/:userId", async (req, res) => {
 
 /* -------------------- STATS -------------------- */
 
-app.get("/api/stats/:userId", async (req, res) => {
+app.get("/api/stats/:userId", (req, res) => {
   res.json({
     wasteListed: 120,
     wasteReused: 80,
@@ -150,7 +148,7 @@ app.get("/api/stats/:userId", async (req, res) => {
 /* -------------------- HEALTH -------------------- */
 
 app.get("/", (req, res) => {
-  res.send("HackHerSpace API running");
+  res.send("HackHerSpace API Running");
 });
 
 /* -------------------- SERVER -------------------- */

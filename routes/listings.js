@@ -8,16 +8,28 @@ const router = express.Router();
 const listingSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
+
     material: String,
+    category: String,
+
     quantity: Number,
+    quantityLabel: String,
+
     location: String,
+    phone: String,
+
     price: Number,
     description: String,
+
+    images: [String],
+
     userId: String,
+
     status: {
       type: String,
       default: "available",
     },
+
     requests: [
       {
         name: String,
@@ -44,11 +56,14 @@ const Listing =
 
 router.get("/", async (req, res) => {
   try {
-    const listings = await Listing.find().sort({ createdAt: -1 });
-    res.status(200).json(listings);
+    const listings = await Listing.find().sort({
+      createdAt: -1,
+    });
+
+    res.json(listings || []);
   } catch (err) {
     console.log("GET listings error:", err);
-    res.status(500).json({ error: "Failed to load listings" });
+    res.json([]);
   }
 });
 
@@ -60,12 +75,31 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Title required" });
     }
 
-    const listing = await Listing.create(req.body);
+    const listing = new Listing({
+      title: req.body.title,
+      material: req.body.material,
+      category: req.body.category,
 
-    res.status(201).json(listing);
+      quantity: req.body.quantity,
+      quantityLabel: req.body.quantityLabel,
+
+      location: req.body.location,
+      phone: req.body.phone,
+
+      description: req.body.description,
+      images: req.body.images || [],
+
+      userId: req.body.userId,
+    });
+
+    await listing.save();
+
+    res.json(listing);
   } catch (err) {
     console.log("Create listing error:", err);
-    res.status(500).json({ error: "Failed to create listing" });
+    res.status(500).json({
+      error: "Failed to create listing",
+    });
   }
 });
 
@@ -95,7 +129,9 @@ router.post("/:id/request", async (req, res) => {
     });
   } catch (err) {
     console.log("Request error:", err);
-    res.status(500).json({ error: "Request failed" });
+    res.status(500).json({
+      error: "Request failed",
+    });
   }
 });
 
@@ -107,10 +143,10 @@ router.get("/user/:userId", async (req, res) => {
       userId: req.params.userId,
     }).sort({ createdAt: -1 });
 
-    res.json(listings);
+    res.json(listings || []);
   } catch (err) {
     console.log("User listings error:", err);
-    res.status(500).json({ error: "Failed to load listings" });
+    res.json([]);
   }
 });
 
@@ -129,7 +165,9 @@ router.put("/:id", async (req, res) => {
     res.json(listing);
   } catch (err) {
     console.log("Update error:", err);
-    res.status(500).json({ error: "Update failed" });
+    res.status(500).json({
+      error: "Update failed",
+    });
   }
 });
 
@@ -146,7 +184,9 @@ router.delete("/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.log("Delete error:", err);
-    res.status(500).json({ error: "Delete failed" });
+    res.status(500).json({
+      error: "Delete failed",
+    });
   }
 });
 

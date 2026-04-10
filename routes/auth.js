@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
-
+console.log("AUTH ROUTES LOADED");
 const router = express.Router();
 
 /* -------------------- MODEL -------------------- */
@@ -126,7 +126,125 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+/* -------------------- FORGOT PASSWORD -------------------- */
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
 
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User Not Found" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    user.otp = otp;
+    user.otpExpiry = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    await transporter.sendMail({
+      from: `"WasteExchange" <${process.env.EMAIL}>`,
+      to: email,
+      subject: "Password Reset OTP - WasteExchange",
+      html: `
+      <div style="font-family:Arial;padding:20px">
+        
+        <h2 style="color:#16a34a">
+          WasteExchange Platform
+        </h2>
+
+        <p>Hello ${user.name || "User"},</p>
+
+        <p>
+          We received a request to reset your password.
+          Use the OTP below to continue:
+        </p>
+
+        <div style="
+          font-size:32px;
+          font-weight:bold;
+          letter-spacing:5px;
+          margin:20px 0;
+        ">
+          ${otp}
+        </div>
+
+        <p>
+          This OTP is valid for 
+          <b>10 minutes</b>.
+        </p>
+
+        <p>
+          If you did not request this,
+          you can ignore this email.
+        </p>
+
+        <hr/>
+
+        <p style="font-size:12px;color:#666">
+          WasteExchange — Intelligent Waste Exchange Platform <br/>
+          Carbon Tracking • Digital Twin • Marketplace
+        </p>
+
+      </div>
+      `,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.log("OTP send error:", err);
+    res.status(500).json({ error: "OTP Send Failed" });
+  }
+});
+
+/* -------------------- VERIFY OTP -------------------- */
+
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(400).json({ error: "User Not Found" });
+
+    if (!user.otp || !user.otpExpiry)
+      return res.status(400).json({ error: "OTP Not Requested" });
+
+    if (user.otpExpiry < Date.now())
+      return res.status(400).json({ error: "OTP Expired" });
+
+    if (user.otp != otp) return res.status(400).json({ error: "Invalid OTP" });
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "OTP Verify Failed" });
+  }
+});
+
+/* -------------------- RESET PASSWORD -------------------- */
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(400).json({ error: "User Not Found" });
+
+    if (!user.otp) return res.status(400).json({ error: "Verify OTP First" });
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    user.password = hashed;
+    user.otp = null;
+    user.otpExpiry = null;
+
+    await user.save();
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Reset Failed" });
+  }
+});
 /* -------------------- UPDATE PROFILE -------------------- */
 
 router.put("/update-profile/:id", async (req, res) => {
