@@ -9,7 +9,7 @@ router.post("/", async (req, res) => {
     const message = req.body?.message || "";
     const text = message.toLowerCase();
 
-    /* ---------------- MARKETPLACE LIST ---------------- */
+    /* MARKETPLACE LIST */
 
     if (
       text.includes("list marketplace") ||
@@ -17,14 +17,20 @@ router.post("/", async (req, res) => {
       text.includes("marketplace items") ||
       text.includes("marketplace list")
     ) {
-      const listings = await Listing.find().limit(5);
+      const listings = await Listing.find().limit(5).lean();
 
       if (!listings.length) {
         return res.json({ reply: "No marketplace items found." });
       }
 
       const formatted = listings
-        .map((l, i) => `${i + 1}. ${l.title} - ${l.quantity}kg - ₹${l.price}`)
+        .map((l, i) => {
+          const title = l.title || "Material";
+          const qty = l.quantity || 0;
+          const loc = l.location || "";
+
+          return `${i + 1}. ${title} - ${qty}kg - ${loc}`;
+        })
         .join("\n");
 
       return res.json({
@@ -32,16 +38,18 @@ router.post("/", async (req, res) => {
       });
     }
 
-    /* ---------------- STATIC AI ---------------- */
+    /* STATIC AI */
 
-    const chats = await Chat.find();
+    const chats = await Chat.find().lean();
 
-    let reply = "Ask about marketplace, carbon, or waste.";
+    let reply = "Ask About Marketplace, Carbon, Or Waste.";
 
     for (const chat of chats) {
       if (!chat.keywords) continue;
 
-      const match = chat.keywords.some((k) => text.includes(k.toLowerCase()));
+      const match = chat.keywords.some((k) =>
+        text.includes(k.toLowerCase())
+      );
 
       if (match) {
         reply = chat.answer;
@@ -52,7 +60,10 @@ router.post("/", async (req, res) => {
     res.json({ reply });
   } catch (err) {
     console.log("CHAT ERROR:", err);
-    res.json({ reply: "AI server error" });
+
+    res.json({
+      reply: "AI Server Error. Please Try Again.",
+    });
   }
 });
 
