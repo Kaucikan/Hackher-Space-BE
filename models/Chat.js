@@ -6,4 +6,8 @@ const chatSchema = new mongoose.Schema({
   keywords: [String],
 });
 
-export default mongoose.model("Chat", chatSchema);
+const Chat =
+  mongoose.models.Chat ||
+  mongoose.model("Chat", chatSchema);
+
+export default Chat;
